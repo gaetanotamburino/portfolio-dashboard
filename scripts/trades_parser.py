@@ -6,16 +6,12 @@ wrangles them and writes a single standardised trades CSV to the
 portfolio dashboard final/trades output folder.
 Source files are deleted after a successful conversion.
 
-Broker detection (by filename)
-───────────────────────────────
-• Fineco  → filename matches "file", "file(1)", "file(2)", … (i.e. basename
-            starts with "file" and has no "Lista Movimenti" prefix)
-            Sheet: "Movimenti Dossier Titoli"
-            account → ACCOUNT_1
-
-• CA      → filename starts with "Lista Movimenti Deposito Titoli_CAI_"
-            Sheet: "Lista Movimenti Deposito Titoli"
-            account → ACCOUNT_2
+Broker support is plugin-style: each broker is one Broker(...) entry in the
+BROKERS list (see "── Broker registry ──" near the bottom), pairing a
+filename-detection pattern with a parse_<broker>() function. Detection and
+dispatch in detect_and_parse() work off that list, so adding a new broker
+never requires touching the dispatcher — see the registry section for what's
+needed.
 
 Output columns:
     date, account, broker, symbol, exchange, asset_class,
@@ -36,9 +32,12 @@ import os
 import re
 import glob
 import sqlite3
-import pandas as pd
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Callable, Optional
+
+import pandas as pd
 
 
 # ── Configuration ─────────────────────────────────────────────────────────────
@@ -53,28 +52,27 @@ DEFAULT_CURR  = "EUR"
 ACCOUNT_1 = "Portfolio A"
 ACCOUNT_2 = "Portfolio B"
 
-# Regex patterns used to identify the broker from the filename (basename, no ext)
-# Fineco exports are named "file", "file(1)", "file(2)", … by the browser
-FINECO_PATTERN = re.compile(r"^file\s*(\(\d+\))?$", re.IGNORECASE)
-CA_PATTERN     = re.compile(r"^Lista Movimenti Deposito Titoli_CAI_", re.IGNORECASE)
 
+# ── Broker plugin interface ─────────────────────────────────────────────────────
 
-# ── Broker detection ──────────────────────────────────────────────────────────
-
-def detect_broker(filepath: str) -> str | None:
+@dataclass(frozen=True)
+class Broker:
     """
-    Return 'Fineco', 'CA', or None (unrecognised) based on the filename alone.
-    Detection happens before opening the file, so bad files are skipped early.
+    One supported broker export format.
+
+    filename_pattern : matched against the basename (no extension) to identify
+                        which broker a dropped file came from, before it's opened.
+    parse            : filepath -> DataFrame with columns
+                        [date, account, broker, symbol, exchange, asset_class,
+                         action, qty, price, commission, currency, notes]
+                        Return an empty DataFrame if the file has no usable rows.
     """
-    basename = os.path.splitext(os.path.basename(filepath))[0]
-    if FINECO_PATTERN.match(basename):
-        return "Fineco"
-    if CA_PATTERN.match(basename):
-        return "CA"
-    return None
+    name: str
+    filename_pattern: re.Pattern
+    parse: Callable[[str], pd.DataFrame]
 
 
-# ── Shared helpers ─────────────────────────────────────────────────────────────
+# ── Shared helpers (available to any broker parser) ──────────────────────────
 
 def parse_it_number(val) -> float:
     """Parse an Italian-formatted number string: '15.111,66' → 15111.66"""
@@ -119,7 +117,11 @@ def infer_from_name(name: str):
     return "ETFplus", "ETF"   # safe default for this account
 
 
-# ── Parser: Fineco — Movimenti Dossier Titoli (.xls) ─────────────────────────
+# ── Broker: Fineco — Movimenti Dossier Titoli (.xls) ─────────────────────────
+
+# Fineco exports are named "file", "file(1)", "file(2)", … by the browser
+FINECO_PATTERN = re.compile(r"^file\s*(\(\d+\))?$", re.IGNORECASE)
+
 
 def parse_fineco(filepath: str) -> pd.DataFrame:
     """ACCOUNT_1's Fineco account — .xls export."""
@@ -186,7 +188,9 @@ def parse_fineco(filepath: str) -> pd.DataFrame:
     ]]
 
 
-# ── Parser: CA — Lista Movimenti Deposito Titoli CAI (.xlsx) ─────────────────
+# ── Broker: CA — Lista Movimenti Deposito Titoli CAI (.xlsx) ─────────────────
+
+CA_PATTERN = re.compile(r"^Lista Movimenti Deposito Titoli_CAI_", re.IGNORECASE)
 
 SKIP_CAUSALI = {"CEDOLA", "DIVIDENDO", "GIROCONTO", "RIMBORSO"}
 BUY_CAUSALI  = {"ACQ.CONT.SU MERC.", "ACQUISTO"}
@@ -272,29 +276,53 @@ def parse_ca(filepath: str) -> pd.DataFrame:
     ]]
 
 
+# ── Broker registry ────────────────────────────────────────────────────────────
+# To add a new broker:
+#   1. Write parse_<broker>(filepath) -> DataFrame above, matching the Broker.parse
+#      contract (see parse_fineco / parse_ca for the required output columns).
+#   2. Define its filename-detection pattern next to it.
+#   3. Add one Broker(...) entry below.
+# Detection and dispatch (detect_broker, detect_and_parse) work off this list
+# automatically — nothing else in this file needs to change.
+
+BROKERS: list[Broker] = [
+    Broker("Fineco", FINECO_PATTERN, parse_fineco),
+    Broker("CA",     CA_PATTERN,     parse_ca),
+]
+
+
 # ── Dispatcher ────────────────────────────────────────────────────────────────
+
+def _find_broker(filepath: str) -> Optional[Broker]:
+    basename = os.path.splitext(os.path.basename(filepath))[0]
+    for broker in BROKERS:
+        if broker.filename_pattern.match(basename):
+            return broker
+    return None
+
+
+def detect_broker(filepath: str) -> Optional[str]:
+    """
+    Return the matching broker name, or None (unrecognised) based on the
+    filename alone. Detection happens before opening the file, so bad files
+    are skipped early.
+    """
+    broker = _find_broker(filepath)
+    return broker.name if broker else None
+
 
 def detect_and_parse(filepath: str):
     """
-    Identify broker from filename, then route to the correct parser.
-    Returns (DataFrame, broker_label) or (empty DataFrame, None).
+    Identify broker from filename, then route to its parser.
+    Returns (DataFrame, broker_name) or (empty DataFrame, None).
     """
-    broker = detect_broker(filepath)
-
+    broker = _find_broker(filepath)
     if broker is None:
         print(f"  [WARN] Unrecognised filename, skipped: {os.path.basename(filepath)}")
         return pd.DataFrame(), None
 
-    print(f"  -> {os.path.basename(filepath)}  [broker: {broker}]")
-
-    if broker == "Fineco":
-        frame = parse_fineco(filepath)
-    elif broker == "CA":
-        frame = parse_ca(filepath)
-    else:
-        frame = pd.DataFrame()
-
-    return frame, broker
+    print(f"  -> {os.path.basename(filepath)}  [broker: {broker.name}]")
+    return broker.parse(filepath), broker.name
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
