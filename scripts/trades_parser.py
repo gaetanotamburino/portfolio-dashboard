@@ -11,11 +11,11 @@ Broker detection (by filename)
 • Fineco  → filename matches "file", "file(1)", "file(2)", … (i.e. basename
             starts with "file" and has no "Lista Movimenti" prefix)
             Sheet: "Movimenti Dossier Titoli"
-            account → Gaetano
+            account → ACCOUNT_1
 
 • CA      → filename starts with "Lista Movimenti Deposito Titoli_CAI_"
             Sheet: "Lista Movimenti Deposito Titoli"
-            account → CA Giovanna
+            account → ACCOUNT_2
 
 Output columns:
     date, account, broker, symbol, exchange, asset_class,
@@ -49,10 +49,9 @@ OUTPUT_FOLDER = str(BASE / "data" / "trades csv")
 DB_PATH       = str(BASE / "data" / "portfolio.db")
 DEFAULT_CURR  = "EUR"
 
-# Account labels — rename here to genericize before making the repo public
-# (e.g. "Portfolio A" / "Portfolio B") without touching parser logic below.
-ACCOUNT_1 = "Gaetano"
-ACCOUNT_2 = "CA Giovanna"
+# Account labels — the two tracked accounts, used throughout the pipeline.
+ACCOUNT_1 = "Portfolio A"
+ACCOUNT_2 = "Portfolio B"
 
 # Regex patterns used to identify the broker from the filename (basename, no ext)
 # Fineco exports are named "file", "file(1)", "file(2)", … by the browser
@@ -123,7 +122,7 @@ def infer_from_name(name: str):
 # ── Parser: Fineco — Movimenti Dossier Titoli (.xls) ─────────────────────────
 
 def parse_fineco(filepath: str) -> pd.DataFrame:
-    """Gaetano's personal Fineco account — .xls export."""
+    """ACCOUNT_1's Fineco account — .xls export."""
     try:
         xf = pd.ExcelFile(filepath, engine="xlrd")
     except Exception as exc:
@@ -194,7 +193,7 @@ BUY_CAUSALI  = {"ACQ.CONT.SU MERC.", "ACQUISTO"}
 SELL_CAUSALI = {"VEN.CONT.SU MERC.", "VENDITA"}
 
 def parse_ca(filepath: str) -> pd.DataFrame:
-    """CA Giovanna joint account — .xlsx CAI export."""
+    """ACCOUNT_2's CA account — .xlsx CAI export."""
     try:
         xf = pd.ExcelFile(filepath, engine="openpyxl")
     except Exception as exc:

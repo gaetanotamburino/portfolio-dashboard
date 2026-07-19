@@ -244,7 +244,7 @@ def _write_charts_sheet(conn: sqlite3.Connection, wb) -> None:
     """
     Write to the 'charts' sheet:
       - Daily return time series (date x account ret_1d)  columns A:C
-      - A line chart plotting Gaetano and CA Giovanna daily returns over time
+      - A line chart plotting each account's daily returns over time
     """
     ws = wb["charts"] if "charts" in wb.sheetnames else wb.create_sheet("charts")
 
