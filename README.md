@@ -32,6 +32,8 @@ imports/*.xls|*.xlsx  →  trades_parser.py  →  portfolio.db (trades)
   `portfolio_summary` tables (cost basis, market value, P&L, period returns).
 - `scripts/accrued.py` — bond accrued-interest calculations.
 - `scripts/migrate_bonds.py` — one-off migration adding the `bonds` metadata table.
+- see [Bonds](#bonds) below for how bond prices, accrued interest, and dirty
+  value are handled end to end.
 - `scripts/export_to_excel.py` — writes the latest snapshot and a returns chart into
   `Portafogliov4.xlsm`.
 - `scripts/run_pipeline.py` — orchestrates the full pipeline (see flags below).
@@ -71,6 +73,42 @@ python scripts/run_pipeline.py --live          # intraday price refresh + export
 ```
 
 On Windows, `open_dashboard.bat` runs a live refresh and opens the workbook in one step.
+
+## Bonds
+
+Bonds (`asset_class = 'BND'`) are handled differently from equities/ETFs at
+every stage of the pipeline, since their quoted price is a clean price (%
+of face value) that excludes interest accrued since the last coupon.
+
+- **Registration** — each bond's coupon schedule lives in the `bonds` table
+  (`isin`, `coupon` — annual rate in %, `freq` — coupons per year, `maturity`),
+  keyed by ISIN. New bonds are added via a migration like
+  `scripts/migrate_bonds.py` (see the `IT0004286966` BTP entry there).
+- **Price fetching** (`scripts/fetch_prices.py`) — Italian government bonds
+  (ISINs starting `IT`) are quoted on Euronext MOT. Prices are fetched by
+  ISIN + MIC (e.g. `("IT0004286966", "MOTX")`, mapped from the trade symbol
+  via `BTP_EURONEXT`) against Euronext's intraday/historical quote endpoints,
+  and stored in the `prices`/`live_prices` tables keyed by ISIN rather than by
+  a Yahoo ticker. Prices are quoted as % of par (e.g. `113.83` = 113.83% of
+  face value).
+- **Accrued interest** (`scripts/accrued.py`) — given an ISIN and a valuation
+  date, `accrued_interest()` locates the current coupon period from the
+  bond's `freq`/`maturity` and pro-rates `coupon / freq` by the fraction of
+  the period elapsed. `to_dirty(isin, clean_price, val_date)` adds that
+  accrued interest to the clean (quoted) price to get the dirty price, and
+  `position_value(isin, clean_price, nominal, val_date)` converts a nominal
+  holding into its EUR dirty market value (`nominal * dirty_price / 100`).
+- **Analytics** (`scripts/build_analytics.py`) — clean bond prices from the
+  `prices`/`live_prices` tables are converted from % of face to EUR/unit
+  (`price_scale = 0.01` for `BND`) when computing `cost_basis`/`market_value`
+  in the `positions` table — these figures are on a **clean-price** basis.
+  Accrued interest is tracked separately: `build_accrued_cash()` adds a
+  synthetic `ACCRUED_<isin>` cash position per (date, account) holding the
+  cumulative interest earned since the position was opened — past coupons
+  received plus the current period's live accrual — computed via
+  `daily_accrual_series()` so the running total isn't reset to zero on each
+  coupon date. Summing a bond's clean `market_value` with its `ACCRUED_<isin>`
+  position reconstructs the dirty (full) market value in the dashboard.
 
 ## Notes
 
