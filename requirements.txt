@@ -1,0 +1,8 @@
+pandas
+xlwings
+openpyxl
+xlrd
+requests
+beautifulsoup4
+cryptography
+python-dateutil

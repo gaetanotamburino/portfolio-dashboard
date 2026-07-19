@@ -1,0 +1,16 @@
+# Personal financial data — never commit
+data/
+imports/
+Portafogliov4.xlsm
+
+# Python
+__pycache__/
+*.pyc
+
+# Claude Code local settings
+.claude/settings.local.json
+scripts/.claude/settings.local.json
+
+# OS
+desktop.ini
+Thumbs.db
