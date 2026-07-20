@@ -117,3 +117,7 @@ of face value) that excludes interest accrued since the last coupon.
 - Ticker resolution (ISIN → Yahoo ticker) is hardcoded per-instrument in
   `scripts/fetch_prices.py`, `scripts/build_analytics.py`, and `middlemanXLSDB.py`
   — update the relevant map when adding a new instrument.
+
+## License
+
+[MIT](LICENSE)
