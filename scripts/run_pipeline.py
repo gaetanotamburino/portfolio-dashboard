@@ -7,7 +7,7 @@ Steps
   1  trades_parser   — ingest broker exports from imports/
   2  fetch_prices    — fetch closing prices for all instruments
   3  build_analytics — rebuild positions + portfolio_summary
-  4  export_to_excel — write dashboard sheet in Portafogliov4.xlsm
+  4  export_to_excel — write dashboard sheet in portfolio-dashboard.xlsm
 
 Usage
   python scripts/run_pipeline.py                  full run
