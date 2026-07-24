@@ -44,7 +44,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 BASE      = Path(__file__).resolve().parent.parent
 DB_PATH   = BASE / "data" / "portfolio.db"
-XLSM_PATH = BASE / "Portafogliov4.xlsm"
+XLSM_PATH = BASE / "portfolio-dashboard.xlsm"
 
 REQUEST_DELAY = 0.5   # seconds between HTTP requests
 TIMEOUT       = 15    # request timeout
