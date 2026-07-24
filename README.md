@@ -9,7 +9,7 @@ dashboard.
 Broker export files dropped into `imports/` are parsed into a standardized trades
 table in a local SQLite database (`data/portfolio.db`). From there, prices are
 fetched, positions and portfolio-level analytics (cost basis, P&L, returns) are
-built, and the latest snapshot is written into `Portafogliov4.xlsm` for viewing.
+built, and the latest snapshot is written into `portfolio-dashboard.xlsm` for viewing.
 
 ```
 imports/*.xls|*.xlsx  →  trades_parser.py  →  portfolio.db (trades)
@@ -18,7 +18,7 @@ imports/*.xls|*.xlsx  →  trades_parser.py  →  portfolio.db (trades)
                                                      │
                             build_analytics.py  →  portfolio.db (instruments, positions, portfolio_summary)
                                                      │
-                           export_to_excel.py  →  Portafogliov4.xlsm (data, charts sheets)
+                           export_to_excel.py  →  portfolio-dashboard.xlsm (data, charts sheets)
 ```
 
 ## Structure
@@ -35,9 +35,9 @@ imports/*.xls|*.xlsx  →  trades_parser.py  →  portfolio.db (trades)
 - see [Bonds](#bonds) below for how bond prices, accrued interest, and dirty
   value are handled end to end.
 - `scripts/export_to_excel.py` — writes the latest snapshot and a returns chart into
-  `Portafogliov4.xlsm`.
+  `portfolio-dashboard.xlsm`.
 - `scripts/run_pipeline.py` — orchestrates the full pipeline (see flags below).
-- `middlemanXLSDB.py` / `Portafogliov4.py` — entry point called from inside Excel via
+- `middlemanXLSDB.py` / `portfolio-dashboard.py` — entry point called from inside Excel via
   [xlwings](https://www.xlwings.org/) to push live prices into the open workbook.
 - `open_dashboard.bat` — Windows launcher: activates the conda environment, runs a
   live pipeline refresh, and opens the workbook.
@@ -48,11 +48,11 @@ imports/*.xls|*.xlsx  →  trades_parser.py  →  portfolio.db (trades)
    ```bash
    pip install -r requirements.txt
    ```
-2. This repo does **not** include `data/`, `imports/`, or `Portafogliov4.xlsm` —
+2. This repo does **not** include `data/`, `imports/`, or `portfolio-dashboard.xlsm` —
    they hold personal financial data and are excluded via `.gitignore`. To run the
    pipeline you'll need:
    - An `imports/` folder for dropping broker export files.
-   - A `Portafogliov4.xlsm` workbook with `data` and `charts` sheets (created
+   - A `portfolio-dashboard.xlsm` workbook with `data` and `charts` sheets (created
      automatically by `export_to_excel.py` on first export if missing sheets, but
      the workbook file itself must already exist).
    - `data/portfolio.db` is created automatically on first run.
