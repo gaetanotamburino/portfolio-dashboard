@@ -2,7 +2,7 @@
 export_to_excel.py
 ───────────────────
 Reads the latest snapshot from portfolio.db and writes it into the
-'data' sheet of Portafogliov4.xlsm.
+'data' sheet of portfolio-dashboard.xlsm.
 
   Instruments table   row 1 (headers) + row 2 onwards   columns A:L
   Portfolio summary   2 rows below last instrument       columns A:I
@@ -18,7 +18,7 @@ from openpyxl.chart import LineChart, Reference
 
 BASE       = Path(__file__).resolve().parent.parent
 DB_PATH    = BASE / "data" / "portfolio.db"
-EXCEL_PATH = BASE / "Portafogliov4.xlsm"
+EXCEL_PATH = BASE / "portfolio-dashboard.xlsm"
 
 PCT_FMT = "0.00%"
 EUR_FMT = "#,##0.00"
