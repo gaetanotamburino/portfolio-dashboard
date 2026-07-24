@@ -1,7 +1,7 @@
 # Personal financial data — never commit
 data/
 imports/
-Portafogliov4.xlsm
+portfolio-dashboard.xlsm
 
 # Python
 __pycache__/
